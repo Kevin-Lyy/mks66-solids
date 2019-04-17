@@ -40,7 +40,7 @@ def scanline_convert(polygons, i, screen, zbuffer ):
     colors = [random.randint(0,255),random.randint(0,255),random.randint(0,255)]
 
     while y < ym:
-        draw_line(int(x0), int(y), z0, int(x1), int(y), z1, screen, zbuffer, colors)
+        notdrawline(int(x0), int(y), z0, int(x1), int(y), z1, screen, zbuffer, colors)
 
         if (top[1]!=low[1]):
             x0 += (top[0]-low[0])/(top[1]-low[1])
@@ -52,7 +52,7 @@ def scanline_convert(polygons, i, screen, zbuffer ):
         y+=1
 
     while y < y1:
-        draw_line(int(x0), int(y), z0, int(xm), int(y), zm, screen, zbuffer, colors)
+        notdrawline(int(x0), int(y), z0, int(xm), int(y), zm, screen, zbuffer, colors)
 
         if (top[1]!=low[1]):
             x0 += (top[0]-low[0])/(top[1]-low[1])
@@ -311,6 +311,75 @@ def add_point( matrix, x, y, z=0 ):
     matrix.append( [x, y, z, 1] )
 
 
+def notdrawline( x0, y0, z0, x1, y1, z1, screen, zbuffer, color ):
+
+    if x0 > x1:
+        x0,y0,z0,x1,y1,z1 = x1,y1,z1,x0,y0,z0
+
+    x = x0
+    y = y0
+    A = 2 * (y1 - y0)
+    B = -2 * (x1 - x0)
+    wide = False
+    tall = False
+
+    if ( abs(x1-x0) >= abs(y1 - y0) ): #octants 1/8
+        wide = True
+        loop_start = x
+        loop_end = x1
+        dx_east = dx_northeast = 1
+        dy_east = 0
+        d_east = A
+        if ( A > 0 ): #octant 1
+            d = A + B/2
+            dy_northeast = 1
+            d_northeast = A + B
+        else: #octant 8
+            d = A - B/2
+            dy_northeast = -1
+            d_northeast = A - B
+
+    else: #octants 2/7
+        tall = True
+        dx_east = 0
+        dx_northeast = 1
+        if ( A > 0 ): #octant 2
+            d = A/2 + B
+            dy_east = dy_northeast = 1
+            d_northeast = A + B
+            d_east = B
+            loop_start = y
+            loop_end = y1
+        else: #octant 7
+            d = A/2 - B
+            dy_east = dy_northeast = -1
+            d_northeast = A - B
+            d_east = -1 * B
+            loop_start = y1
+            loop_end = y
+
+    z = z0
+    if (x1!=x0 and ((y1-y0)/(x1-x0))>-1 and ((y1-y0)/(x1-x0))<1):
+        dz = (z1-z0)/(x1-x0)
+
+    elif (y1!=y0):
+        dz = (z1-z0)/math.abs(y1-y0)
+
+
+    while ( loop_start < loop_end ):
+      plot( screen, zbuffer, color, x, y, z )
+      z += dz
+      if ( (wide and ((A > 0 and d > 0) or (A < 0 and d < 0))) or
+           (tall and ((A > 0 and d < 0) or (A < 0 and d > 0 )))):
+
+          x+= dx_northeast
+          y+= dy_northeast
+          d+= d_northeast
+      else:
+          x+= dx_east
+          y+= dy_east
+          d+= d_east
+      loop_start+= 1
 
 def draw_line( x0, y0, z0, x1, y1, z1, screen, zbuffer, color ):
 
