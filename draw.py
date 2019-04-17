@@ -1,9 +1,67 @@
 from display import *
 from matrix import *
 from gmath import *
+import random
+import math
 
 def scanline_convert(polygons, i, screen, zbuffer ):
-    pass
+    tri = polygons[i:i+3]
+    yc = [tri[x][1] for x in range(3)]
+
+    maxY = max(yc)
+    minY = min(yc)
+
+    for e in tri:
+        if e[1] == maxY:
+            top = e
+            tri.remove(e)
+            break
+
+    for e in tri:
+        if e[1] == minY:
+            low = e
+            tri.remove(e)
+            break
+
+    mid = tri[0]
+
+    y = low[1]
+    y1 = top[1]
+    ym = mid[1]
+
+    x0 = low[0]
+    x1 = low[0]
+    xm = mid[0]
+
+    z0 = low[2]
+    z1 = low[2]
+    zm = mid[2]
+
+    colors = [random.randint(0,255),random.randint(0,255),random.randint(0,255)]
+
+    while y < ym:
+        draw_line(int(x0), int(y), z0, int(x1), int(y), z1, screen, zbuffer, colors)
+
+        if (top[1]!=low[1]):
+            x0 += (top[0]-low[0])/(top[1]-low[1])
+            z0 += (top[2]-low[2])/(top[1]-low[1])
+        if (mid[1]!=low[1]):
+            x1 += (mid[0]-low[0])/(mid[1]-low[1])
+            z1 += (mid[2]-low[2])/(mid[1]-low[1])
+
+        y+=1
+
+    while y < y1:
+        draw_line(int(x0), int(y), z0, int(xm), int(y), zm, screen, zbuffer, colors)
+
+        if (top[1]!=low[1]):
+            x0 += (top[0]-low[0])/(top[1]-low[1])
+            z0 += (top[2]-low[2])/(top[1]-low[1])
+        if (top[1]!=mid[1]):
+            xm += (top[0]-mid[0])/(top[1]-mid[1])
+            zm += (top[2]-mid[2])/(top[1]-mid[1])
+
+        y+=1
 
 def add_polygon( polygons, x0, y0, z0, x1, y1, z1, x2, y2, z2 ):
     add_point(polygons, x0, y0, z0)
@@ -12,7 +70,7 @@ def add_polygon( polygons, x0, y0, z0, x1, y1, z1, x2, y2, z2 ):
 
 def draw_polygons( polygons, screen, zbuffer, color ):
     if len(polygons) < 2:
-        print 'Need at least 3 points to draw'
+        print ('Need at least 3 points to draw')
         return
 
     point = 0
@@ -21,6 +79,7 @@ def draw_polygons( polygons, screen, zbuffer, color ):
         normal = calculate_normal(polygons, point)[:]
         #print normal
         if normal[2] > 0:
+            '''
             draw_line( int(polygons[point][0]),
                        int(polygons[point][1]),
                        polygons[point][2],
@@ -42,6 +101,8 @@ def draw_polygons( polygons, screen, zbuffer, color ):
                        int(polygons[point+2][1]),
                        polygons[point+2][2],
                        screen, zbuffer, color)
+            '''
+            scanline_convert(polygons,point,screen,zbuffer)
         point+= 3
 
 
@@ -68,7 +129,7 @@ def add_box( polygons, x, y, z, width, height, depth ):
     #top
     add_polygon(polygons, x, y, z1, x1, y, z, x1, y, z1)
     add_polygon(polygons, x, y, z1, x, y, z, x1, y, z)
-    #bottom
+    #low
     add_polygon(polygons, x, y1, z, x1, y1, z1, x1, y1, z)
     add_polygon(polygons, x, y1, z, x, y1, z1, x1, y1, z1)
 
@@ -109,7 +170,6 @@ def add_sphere(polygons, cx, cy, cz, r, step ):
                              points[p3][0],
                              points[p3][1],
                              points[p3][2])
-
 
 def generate_sphere( cx, cy, cz, r, step ):
     points = []
@@ -229,7 +289,7 @@ def add_curve( points, x0, y0, x1, y1, x2, y2, x3, y3, step, curve_type ):
 
 def draw_lines( matrix, screen, zbuffer, color ):
     if len(matrix) < 2:
-        print 'Need at least 2 points to draw'
+        print ('Need at least 2 points to draw')
         return
 
     point = 0
@@ -256,12 +316,7 @@ def draw_line( x0, y0, z0, x1, y1, z1, screen, zbuffer, color ):
 
     #swap points if going right -> left
     if x0 > x1:
-        xt = x0
-        yt = y0
-        x0 = x1
-        y0 = y1
-        x1 = xt
-        y1 = yt
+        x0,y0,z0,x1,y1,z1 = x1,y1,z1,x0,y0,z0
 
     x = x0
     y = y0
@@ -305,17 +360,25 @@ def draw_line( x0, y0, z0, x1, y1, z1, screen, zbuffer, color ):
             loop_start = y1
             loop_end = y
 
-    while ( loop_start < loop_end ):
-        plot( screen, zbuffer, color, x, y, 0 )
-        if ( (wide and ((A > 0 and d > 0) or (A < 0 and d < 0))) or
-             (tall and ((A > 0 and d < 0) or (A < 0 and d > 0 )))):
+    z = z0
+    if (x1!=x0 and ((y1-y0)/(x1-x0))>-1 and ((y1-y0)/(x1-x0))<1):
+        dz = (z1-z0)/(x1-x0)
 
-            x+= dx_northeast
-            y+= dy_northeast
-            d+= d_northeast
-        else:
-            x+= dx_east
-            y+= dy_east
-            d+= d_east
-        loop_start+= 1
-    plot( screen, zbuffer, color, x, y, 0 )
+    elif (y1!=y0):
+        dz = (z1-z0)/math.abs(y1-y0)
+
+
+    while ( loop_start < loop_end ):
+      plot( screen, zbuffer, color, x, y, z )
+      z += dz
+      if ( (wide and ((A > 0 and d > 0) or (A < 0 and d < 0))) or
+           (tall and ((A > 0 and d < 0) or (A < 0 and d > 0 )))):
+
+          x+= dx_northeast
+          y+= dy_northeast
+          d+= d_northeast
+      else:
+          x+= dx_east
+          y+= dy_east
+          d+= d_east
+      loop_start+= 1
